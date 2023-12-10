@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Components</title>
+    <style>
+        :root{
+            --rating-selected-color: #f5ce42;
+            --rating-unselected-color: gray;
+        }
+        rating-widget>p {
+            display: inline;
+            color: var(--rating-unselected-color);
+            font-size: xx-large;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Web Components</h1>
+    </header>
+    <main>
+        <h2>Rating Widget</h2>
+        <rating-widget>
+            <form action="https://httpbin.org/post" method="POST">
+                <label for="rating">How satisfied are you?</label>
+                <input type="hidden" name="question" value="How satisfied are you?">
+                <input type="hidden" name="sentBy" value="HTML">
+                <input type="number" id="rating" name="rating" min="1" max="5" value="0" required>
+                <button type="submit">Submit</button>
+            </form>
+        </rating-widget>
+        <h2>Weather Widget</h2>
+        <weather-widget>Current Weather Conditions Unavailable</weather-widget>
+    </main>
+
+    <script>
+        class RatingWidget extends HTMLElement {
+            #called;
+
+            constructor() {
+                super();
+                this.#called = false;
+            }
+
+            connectedCallback() {
+
+                if (this.#called) {
+                    return;
+                }
+                else {
+                    this.#called = true;
+                }
+
+                let maxStars = parseInt(this.querySelector('#rating').max);
+
+                if (maxStars > 10) {
+                    maxStars = 10;
+                } else if (maxStars < 3) {
+                    maxStars = 3;
+                }
+
+                this.innerHTML = '';
+
+                for (let i = 0; i < maxStars; i++) {
+                    this.star = document.createElement('p');
+                    this.star.id = `r${i + 1}`;
+                    this.star.innerHTML = '★';
+                    this.appendChild(this.star);
+                }
+
+                this.addEventListener('click', (event) => {
+                    if (event.target.tagName == 'P') {
+                        let rating = parseInt(event.target.id.slice(1));
+
+                        const request = new XMLHttpRequest();
+                        request.open('POST', 'https://httpbin.org/post', true);
+                        request.setRequestHeader('Content-Type', "application/x-www-form-urlencoded");
+                        request.setRequestHeader('X-Sent-By', 'JS');
+
+                        request.onreadystatechange = () => {
+                            if (request.readyState === XMLHttpRequest.DONE && request.status === 200) {
+                                console.log(request.response);
+                            }
+                        };
+
+                        request.send(`question=How+satisfied+are+you?&sentBy=JS&rating=${rating}`);
+
+                        if (rating / maxStars >= 0.80) {
+                            this.innerHTML = `Thanks for the ${rating} star rating!`;
+                        }
+                        else {
+                            this.innerHTML = `Thanks for your feedback of ${rating} star${rating == 1 ? '' : 's'}. We'll try to do better!`;
+                        }
+                    }
+                })
+
+                this.addEventListener('mouseover', (event) => {
+                    if(event.target.tagName == 'P'){
+                        for (let i = event.target.id.slice(1); i > 0; i--){
+                            this.querySelector(`#r${i}`).style.color = 'var(--rating-selected-color)';
+                        }
+                    }
+                })
+
+                this.addEventListener('mouseout', (event) => {
+                    if(event.target.tagName == 'P'){
+                        for (let i = event.target.id.slice(1); i > 0; i--){
+                            this.querySelector(`#r${i}`).style.color = 'var(--rating-unselected-color)';
+                        }
+                    }
+                })
+            }
+        }
+
+        class WeatherWidget extends HTMLElement{
+            constructor(){
+                super();
+            }
+
+            connectedCallback(){
+
+                this.innerHTML = '';
+
+                const request = new XMLHttpRequest;
+                request.open("GET", "https://api.weather.gov/gridpoints/SGX/55,22/forecast/hourly", true);
+
+                request.onload = () => {
+                    let apiResponse = JSON.parse(request.response);
+                    let currentForecast = apiResponse.properties.periods[0];
+                    console.log(currentForecast);
+
+                    let icon = '☀️';
+
+                    if(currentForecast.isDaytime == false){
+                        icon = '🌙';
+                    }
+
+                    if(currentForecast.shortForecast.includes('Rain') || currentForecast.shortForecast.includes('Shower')){
+                        icon = '🌧️';
+                    } else if(currentForecast.shortForecast.includes('Cloud')){
+                        icon = '☁️';
+                    } else if(currentForecast.shortForecast.includes('Snow')){
+                        icon = '❄️';
+                    }
+
+                    this.innerHTML = `<p>${icon} ${currentForecast.shortForecast} ${currentForecast.temperature}°${currentForecast.temperatureUnit}</p>
+                    <p>☔ Chance of rain: ${currentForecast.probabilityOfPrecipitation.value}%</p>
+                    <p>💧 Humidity: ${currentForecast.relativeHumidity.value}%</p>
+                    <p>💨 Wind Speed: ${currentForecast.windSpeed} ${currentForecast.windDirection}</p>`
+                }
+
+                request.send(null);
+            }
+        }
+        customElements.define('rating-widget', RatingWidget);
+        customElements.define('weather-widget', WeatherWidget);
+    </script>
+</body>
+
+</html>
